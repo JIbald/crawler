@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestgetURLsFromHTML(t *testing.T) {
+func TestGetURLsFromHTML(t *testing.T) {
 	tests := []struct {
 		name      string
 		inputURL  string
@@ -38,8 +38,11 @@ func TestgetURLsFromHTML(t *testing.T) {
 				return
 			}
 			for index, _ := range tc.expected {
+				if len(actual) != len(tc.expected) {
+					t.Errorf("Test %v - %s FAIL: wrong number of URL(s), expected: %v, actual: %v", i, tc.name, len(tc.expected), len(actual))
+				}
 				if actual[index] != tc.expected[index] {
-					t.Errorf("Test %v - %s FAIL: expected URL: %v, actual: %v", i, tc.name, tc.expected, actual)
+					t.Errorf("Test %v - %s FAIL: wrong URL(s), expected: %v, actual: %v", i, tc.name, tc.expected, actual)
 				}
 			}
 		})
