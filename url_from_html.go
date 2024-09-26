@@ -3,45 +3,45 @@ package main
 import (
 	"fmt"
 	"golang.org/x/net/html"
+	"net/url"
 	"strings"
 )
 
-func getHrefValuesFromHTML(tree *html.Node) []string {
-	result := []string{}
-	if tree.Type == html.ElementNode && tree.Data == "a" {
-		for _, anchor := range tree.Attr {
-			if anchor.Key == "href" {
-				result = append(result, anchor.Val)
-				break
+func getURLsFromHTML(htmlBody, rawBaseURL string) ([]string, error) {
+	baseURL, err := url.Parse(rawBaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse base URL: %v", err)
+	}
+
+	htmlReader := strings.NewReader(htmlBody)
+	doc, err := html.Parse(htmlReader)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse HTML: %v", err)
+	}
+
+	var urls []string
+	var traverseNodes func(*html.Node)
+	traverseNodes = func(node *html.Node) {
+		if node.Type == html.ElementNode && node.Data == "a" {
+			for _, anchor := range node.Attr {
+				if anchor.Key == "href" {
+					href, err := url.Parse(anchor.Val)
+					if err != nil {
+						fmt.Printf("couldn't parse href '%v': %v\n", anchor.Val, err)
+						continue
+					}
+
+					resolvedURL := baseURL.ResolveReference(href)
+					urls = append(urls, resolvedURL.String())
+				}
 			}
 		}
-	}
-	for child := tree.FirstChild; child != nil; child = child.NextSibling {
-		result = append(result, getHrefValuesFromHTML(child)...)
-	}
-	return result
-}
 
-func completeWithBaseURL(hrefValues []string, rawBaseURL string) []string {
-	result := []string{}
-	for _, val := range hrefValues {
-		if strings.Contains(val, "http") || strings.Contains(val, "https") || strings.Contains(val, rawBaseURL) {
-			result = append(result, val)
-		} else {
-			result = append(result, rawBaseURL+val)
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			traverseNodes(child)
 		}
 	}
-	return result
-}
+	traverseNodes(doc)
 
-func getURLsFromHTML(htmlBody, rawBaseURL string) ([]string, error) {
-	result := []string{}
-	tree, err := html.Parse(strings.NewReader(htmlBody))
-	if err != nil {
-		return []string{}, fmt.Errorf("error Parsing ioReader: %w", err)
-	}
-	hrefValues := getHrefValuesFromHTML(tree)
-	result = completeWithBaseURL(hrefValues, rawBaseURL)
-
-	return result, nil
+	return urls, nil
 }
